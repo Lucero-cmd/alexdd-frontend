@@ -121,25 +121,152 @@ async function apiJson(path, opts = {}) {
 // own dropdown, not approximated) ──────────────────────────────────────
 
 const NATIONALITIES = [
-  "British", "Irish", "Polish", "Romanian", "Bulgarian", "Lithuanian", "Latvian",
-  "Estonian", "Czech", "Slovak", "Hungarian", "Portuguese", "Spanish", "Italian",
-  "French", "German", "Dutch", "Belgian", "Greek", "Albanian", "Ukrainian", "Russian",
-  "Turkish", "Nigerian", "Ghanaian", "Kenyan", "South African", "Zimbabwean", "Somali",
-  "Egyptian", "Indian", "Pakistani", "Bangladeshi", "Sri Lankan", "Nepalese", "Chinese",
-  "Filipino", "Vietnamese", "Thai", "Malaysian", "Indonesian", "Jamaican", "Trinidadian",
-  "Brazilian", "American", "Canadian", "Australian", "New Zealander", "Afghan", "Iranian",
-  "Iraqi", "Syrian", "Other",
+  "Afghan", "Albanian", "Algerian", "American", "Andorran", "Angolan",
+  "Antiguan", "Argentine", "Armenian", "Australian", "Austrian",
+  "Azerbaijani", "Bahamian", "Bahraini", "Bangladeshi", "Barbadian",
+  "Belarusian", "Belgian", "Belizean", "Beninese", "Bhutanese",
+  "Bolivian", "Bosnian", "Botswanan", "Brazilian", "British",
+  "Bruneian", "Bulgarian", "Burkinabe", "Burmese", "Burundian",
+  "Cambodian", "Cameroonian", "Canadian", "Cape Verdean",
+  "Central African", "Chadian", "Chilean", "Chinese", "Colombian",
+  "Comoran", "Congolese", "Costa Rican", "Croatian", "Cuban",
+  "Cypriot", "Czech", "Danish", "Djiboutian", "Dominican",
+  "Dutch", "East Timorese", "Ecuadorian", "Egyptian",
+  "Emirati", "Equatorial Guinean", "Eritrean", "Estonian",
+  "Eswatini", "Ethiopian", "Fijian", "Filipino", "Finnish",
+  "French", "Gabonese", "Gambian", "Georgian", "German",
+  "Ghanaian", "Greek", "Grenadian", "Guatemalan", "Guinean",
+  "Guinea-Bissauan", "Guyanese", "Haitian", "Honduran",
+  "Hungarian", "Icelandic", "Indian", "Indonesian", "Iranian",
+  "Iraqi", "Irish", "Israeli", "Italian", "Ivorian", "Jamaican",
+  "Japanese", "Jordanian", "Kazakh", "Kenyan", "Kiribati",
+  "Kosovan", "Kuwaiti", "Kyrgyz", "Laotian", "Latvian",
+  "Lebanese", "Lesothan", "Liberian", "Libyan", "Liechtensteiner",
+  "Lithuanian", "Luxembourgish", "Macedonian", "Malagasy",
+  "Malawian", "Malaysian", "Maldivian", "Malian", "Maltese",
+  "Marshallese", "Mauritanian", "Mauritian", "Mexican",
+  "Micronesian", "Moldovan", "Monacan", "Mongolian",
+  "Montenegrin", "Moroccan", "Mosotho", "Mozambican", "Namibian",
+  "Nauruan", "Nepalese", "New Zealander", "Nicaraguan",
+  "Nigerian", "Nigerien", "North Korean", "North Macedonian",
+  "Norwegian", "Omani", "Pakistani", "Palauan", "Palestinian",
+  "Panamanian", "Papua New Guinean", "Paraguayan", "Peruvian",
+  "Polish", "Portuguese", "Qatari", "Romanian", "Russian",
+  "Rwandan", "Saint Lucian", "Salvadoran", "Samoan",
+  "San Marinese", "Sao Tomean", "Saudi Arabian",
+  "Scottish", "Senegalese", "Serbian", "Seychellois",
+  "Sierra Leonean", "Singaporean", "Slovak", "Slovenian",
+  "Solomon Islander", "Somali", "South African", "South Korean",
+  "South Sudanese", "Spanish", "Sri Lankan", "Sudanese",
+  "Surinamese", "Swazi", "Swedish", "Swiss", "Syrian",
+  "Taiwanese", "Tajik", "Tanzanian", "Thai", "Togolese",
+  "Tongan", "Trinidadian", "Tunisian", "Turkish", "Turkmen",
+  "Tuvaluan", "Ugandan", "Ukrainian", "Uruguayan", "Uzbek",
+  "Vanuatuan", "Venezuelan", "Vietnamese", "Welsh", "Yemeni",
+  "Zambian", "Zimbabwean",
+  "Other",
 ];
 
-(function populateNationalities() {
-  const sel = document.getElementById("reg-nationality");
-  for (const n of NATIONALITIES) {
-    const opt = document.createElement("option");
-    opt.value = n;
-    opt.textContent = n;
-    sel.appendChild(opt);
+// ── Generic searchable combobox ─────────────────────────────────────────
+// Backs the course pickers (Register/Invoice/Receipt) and the nationality
+// picker. `searchInputId` is the visible text box; `hiddenInputId` is the
+// element other code reads the chosen value from via val(id) — kept as an
+// <input type="hidden"> with the SAME id the old <select> used to have,
+// so collectEnrolmentData() / autofill handlers elsewhere needed no change.
+function initCombobox({ searchInputId, hiddenInputId, listId, options, onSelect, getLabel }) {
+  const searchInput = document.getElementById(searchInputId);
+  const hiddenInput = document.getElementById(hiddenInputId);
+  const list = document.getElementById(listId);
+  getLabel = getLabel || ((opt) => opt);
+  let highlighted = -1;
+  let filtered = [];
+
+  function render(query) {
+    const q = (query || "").trim().toLowerCase();
+    filtered = !q
+      ? options.slice()
+      : options.filter((opt) => getLabel(opt).toLowerCase().includes(q));
+    highlighted = -1;
+    if (!filtered.length) {
+      list.innerHTML = `<div class="combobox-empty">No matches</div>`;
+    } else {
+      list.innerHTML = filtered
+        .map((opt, i) => `<div class="combobox-option" data-index="${i}">${escapeHtml(getLabel(opt))}</div>`)
+        .join("");
+    }
   }
-})();
+
+  function open(query) {
+    render(query);
+    list.classList.add("open");
+  }
+  function close() {
+    list.classList.remove("open");
+  }
+  function choose(opt) {
+    hiddenInput.value = getLabel(opt);
+    searchInput.value = getLabel(opt);
+    close();
+    if (onSelect) onSelect(opt);
+  }
+
+  searchInput.addEventListener("input", () => {
+    hiddenInput.value = "";
+    open(searchInput.value);
+  });
+  searchInput.addEventListener("focus", () => open(searchInput.value));
+  searchInput.addEventListener("keydown", (e) => {
+    if (!list.classList.contains("open")) return;
+    if (e.key === "ArrowDown") {
+      e.preventDefault();
+      highlighted = Math.min(highlighted + 1, filtered.length - 1);
+      updateHighlight();
+    } else if (e.key === "ArrowUp") {
+      e.preventDefault();
+      highlighted = Math.max(highlighted - 1, 0);
+      updateHighlight();
+    } else if (e.key === "Enter") {
+      e.preventDefault();
+      if (highlighted >= 0 && filtered[highlighted]) choose(filtered[highlighted]);
+    } else if (e.key === "Escape") {
+      close();
+    }
+  });
+  list.addEventListener("mousedown", (e) => {
+    const row = e.target.closest(".combobox-option");
+    if (!row) return;
+    const opt = filtered[Number(row.dataset.index)];
+    if (opt) choose(opt);
+  });
+  document.addEventListener("click", (e) => {
+    if (!searchInput.parentElement.contains(e.target)) close();
+  });
+
+  function updateHighlight() {
+    list.querySelectorAll(".combobox-option").forEach((el, i) => {
+      el.classList.toggle("highlighted", i === highlighted);
+    });
+    const el = list.querySelector(".highlighted");
+    if (el) el.scrollIntoView({ block: "nearest" });
+  }
+
+  return {
+    setOptions(newOptions) { options = newOptions; },
+    setValue(value) {
+      hiddenInput.value = value || "";
+      searchInput.value = value || "";
+    },
+  };
+}
+
+// ── Reference data: nationalities — full global demonym list, "Other" last
+
+const nationalityCombobox = initCombobox({
+  searchInputId: "reg-nationality-search",
+  hiddenInputId: "reg-nationality",
+  listId: "reg-nationality-list",
+  options: NATIONALITIES,
+});
 
 // ── Tabs ───────────────────────────────────────────────────────────────
 
@@ -153,7 +280,9 @@ document.querySelectorAll("nav.tabs button").forEach((btn) => {
   });
 });
 
-// ── Courses: load once, populate every select, and drive autofill ─────
+// ── Courses: load once, populate every combobox, and drive autofill ────
+
+const courseComboboxes = {};
 
 async function loadCourses() {
   try {
@@ -161,28 +290,40 @@ async function loadCourses() {
   } catch (err) {
     state.courses = [];
   }
-  populateCourseSelect("reg-course-select");
-  populateCourseSelect("inv-course-select");
-  populateCourseSelect("rec-course-select");
+  ensureCourseComboboxesInit();
+  for (const cb of Object.values(courseComboboxes)) cb.setOptions(state.courses);
   renderCourseEditor();
 }
 
-function populateCourseSelect(selectId) {
-  const sel = document.getElementById(selectId);
-  const placeholder = sel.querySelector("option[value='']");
-  sel.innerHTML = "";
-  if (placeholder) sel.appendChild(placeholder);
-  for (const c of state.courses) {
-    const opt = document.createElement("option");
-    opt.value = c.name;
-    opt.textContent = c.name;
-    sel.appendChild(opt);
-  }
+function ensureCourseComboboxesInit() {
+  if (courseComboboxes.reg) return; // already initialised
+  courseComboboxes.reg = initCombobox({
+    searchInputId: "reg-course-search",
+    hiddenInputId: "reg-course-select",
+    listId: "reg-course-list",
+    options: state.courses,
+    getLabel: (c) => c.name,
+    onSelect: (course) => {
+      document.getElementById("reg-course-title").value = course.name;
+    },
+  });
+  courseComboboxes.inv = initCombobox({
+    searchInputId: "inv-course-search",
+    hiddenInputId: "inv-course-select",
+    listId: "inv-course-list",
+    options: state.courses,
+    getLabel: (c) => c.name,
+    onSelect: (course) => applyCourseAutofill("inv", course.name),
+  });
+  courseComboboxes.rec = initCombobox({
+    searchInputId: "rec-course-search",
+    hiddenInputId: "rec-course-select",
+    listId: "rec-course-list",
+    options: state.courses,
+    getLabel: (c) => c.name,
+    onSelect: (course) => applyCourseAutofill("rec", course.name),
+  });
 }
-
-document.getElementById("reg-course-select").addEventListener("change", (e) => {
-  if (e.target.value) document.getElementById("reg-course-title").value = e.target.value;
-});
 
 // Course → description/amount/VAT autofill for Invoice and Receipt,
 // replicating the desktop app's exact price_inc -> amount_exc formula:
@@ -199,13 +340,6 @@ function applyCourseAutofill(prefix, courseName) {
   document.getElementById(`${prefix}-amount-exc`).value = exc.toFixed(2);
   document.getElementById(`${prefix}-vat-rate`).value = String(Math.round(rate));
 }
-
-document.getElementById("inv-course-select").addEventListener("change", (e) => {
-  if (e.target.value) applyCourseAutofill("inv", e.target.value);
-});
-document.getElementById("rec-course-select").addEventListener("change", (e) => {
-  if (e.target.value) applyCourseAutofill("rec", e.target.value);
-});
 
 // ── Live preview chips: customer ID + document number ──────────────────
 // Debounced so we are not firing a request on every keystroke.
@@ -309,6 +443,55 @@ function val(id) { return document.getElementById(id).value; }
 function num(id) { return parseFloat(document.getElementById(id).value) || 0; }
 function checked(id) { return document.getElementById(id).checked; }
 
+const MONTH_NAMES = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+// <input type="date"> always yields "YYYY-MM-DD" (or "" if empty). The PDFs
+// and doc-number minting expect a human-readable display string instead —
+// this converts without touching pdf_generator.py or db.py, both of which
+// already accept several date string formats (including "YYYY-MM-DD" for
+// minting) and treat the date as an opaque display string for the PDF body.
+function formatDateLong(isoDate) {
+  // "DD Month YYYY", matching the original invoice/receipt placeholder convention.
+  if (!isoDate) return "";
+  const [y, m, d] = isoDate.split("-").map(Number);
+  if (!y || !m || !d) return isoDate;
+  return `${d} ${MONTH_NAMES[m - 1]} ${y}`;
+}
+function formatDateSlash(isoDate) {
+  // "DD/MM/YYYY", matching the original Register tab (dob, reg_date) convention.
+  if (!isoDate) return "";
+  const [y, m, d] = isoDate.split("-").map(Number);
+  if (!y || !m || !d) return isoDate;
+  return `${String(d).padStart(2, "0")}/${String(m).padStart(2, "0")}/${y}`;
+}
+
+// Reverse of formatDateLong: "D Month YYYY" -> "YYYY-MM-DD" for re-loading
+// a history entry into a native <input type="date">. Returns "" if the
+// stored string doesn't match (e.g. it was generated before this format
+// existed, or was left blank) rather than guessing.
+function parseDateLongToIso(display) {
+  if (!display) return "";
+  const m = /^(\d{1,2})\s+([A-Za-z]+)\s+(\d{4})$/.exec(display.trim());
+  if (!m) return "";
+  const day = Number(m[1]);
+  const monthIndex = MONTH_NAMES.findIndex((name) => name.toLowerCase() === m[2].toLowerCase());
+  const year = Number(m[3]);
+  if (monthIndex === -1) return "";
+  return `${year}-${String(monthIndex + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// Reverse of formatDateSlash: "DD/MM/YYYY" -> "YYYY-MM-DD".
+function parseDateSlashToIso(display) {
+  if (!display) return "";
+  const m = /^(\d{1,2})\/(\d{1,2})\/(\d{4})$/.exec(display.trim());
+  if (!m) return "";
+  const [, d, mo, y] = m;
+  return `${y}-${String(mo).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
+}
+
 // ── REGISTER (Enrolment) ────────────────────────────────────────────────
 
 let lastEnrolmentData = null;
@@ -322,7 +505,7 @@ function collectEnrolmentData() {
     surname: val("reg-surname"),
     address: val("reg-address"),
     postcode: val("reg-postcode"),
-    dob: val("reg-dob"),
+    dob: formatDateSlash(val("reg-dob")),
     ni_number: val("reg-ni"),
     client_email: val("reg-email"),
     client_phone: val("reg-phone"),
@@ -344,7 +527,7 @@ function collectEnrolmentData() {
     ethnicity: val("reg-ethnicity"),
     agree_data_protection: checked("reg-agree-dp"),
     agree_equality: checked("reg-agree-eq"),
-    reg_date: val("reg-date") || null,
+    reg_date: formatDateSlash(val("reg-date")) || null,
   };
 }
 
@@ -367,6 +550,14 @@ document.getElementById("reg-generate-btn").addEventListener("click", async () =
     if (lastEnrolmentBlobUrl) URL.revokeObjectURL(lastEnrolmentBlobUrl);
     lastEnrolmentBlobUrl = showPdfBlob("reg", blob);
     document.getElementById("reg-email-btn").disabled = false;
+    document.getElementById("reg-to-invoice-btn").disabled = false;
+    document.getElementById("reg-to-receipt-btn").disabled = false;
+    // Silently carry the enrolment's contact + course details into Invoice
+    // and Receipt so they're already prefilled if the user switches tabs —
+    // the explicit "Create Invoice/Receipt from this…" buttons below do the
+    // same prefill on demand, for when the user edited those tabs since.
+    applyEnrolmentToBillingForm("inv");
+    applyEnrolmentToBillingForm("rec");
     showStatus("reg-status", "Enrolment form generated.", "success");
   } catch (err) {
     showStatus("reg-status", err.message, "error");
@@ -375,11 +566,50 @@ document.getElementById("reg-generate-btn").addEventListener("click", async () =
   }
 });
 
+// Carries the most recently generated enrolment's contact details and
+// course onto the Invoice or Receipt tab (prefix "inv" / "rec"). Does NOT
+// touch amount/VAT/description beyond what the course autofill sets, and
+// never overwrites a course the user picked manually if no course was set
+// on Register — it only fills what the enrolment actually specified.
+function applyEnrolmentToBillingForm(prefix) {
+  if (!lastEnrolmentData) return;
+  const fullName = `${lastEnrolmentData.title || ""} ${lastEnrolmentData.forename || ""} ${lastEnrolmentData.surname || ""}`
+    .replace(/\s+/g, " ")
+    .trim();
+  if (fullName) document.getElementById(`${prefix}-client-name`).value = fullName;
+  if (lastEnrolmentData.address) document.getElementById(`${prefix}-address`).value = lastEnrolmentData.address;
+  if (lastEnrolmentData.client_phone) document.getElementById(`${prefix}-phone`).value = lastEnrolmentData.client_phone;
+  if (lastEnrolmentData.client_email) document.getElementById(`${prefix}-email`).value = lastEnrolmentData.client_email;
+
+  const courseName = lastEnrolmentData.course_title;
+  if (courseName) {
+    courseComboboxes[prefix].setValue(courseName);
+    applyCourseAutofill(prefix, courseName);
+  }
+
+  if (prefix === "inv") updateInvCustomerIdPreview();
+  if (prefix === "rec") updateRecCustomerIdPreview();
+}
+
+document.getElementById("reg-to-invoice-btn").addEventListener("click", () => {
+  applyEnrolmentToBillingForm("inv");
+  document.querySelector('nav.tabs button[data-tab="invoice"]').click();
+});
+document.getElementById("reg-to-receipt-btn").addEventListener("click", () => {
+  applyEnrolmentToBillingForm("rec");
+  document.querySelector('nav.tabs button[data-tab="receipt"]').click();
+});
+
 document.getElementById("reg-clear-btn").addEventListener("click", () => {
-  document.querySelectorAll("#panel-register input[type=text], #panel-register input[type=email], #panel-register input[type=tel], #panel-register textarea")
-    .forEach((el) => (el.value = ""));
+  document.querySelectorAll(
+    "#panel-register input[type=text], #panel-register input[type=email], " +
+    "#panel-register input[type=tel], #panel-register input[type=date], " +
+    "#panel-register input[type=hidden], #panel-register textarea"
+  ).forEach((el) => (el.value = ""));
   document.querySelectorAll("#panel-register select").forEach((el) => (el.value = ""));
   document.querySelectorAll("#panel-register input[type=checkbox]").forEach((el) => (el.checked = false));
+  document.getElementById("reg-to-invoice-btn").disabled = true;
+  document.getElementById("reg-to-receipt-btn").disabled = true;
   hideStatus("reg-status");
 });
 
@@ -411,7 +641,7 @@ function collectInvoiceData() {
     client_address: val("inv-address"),
     client_phone: val("inv-phone"),
     client_email: val("inv-email"),
-    date: val("inv-date"),
+    date: formatDateLong(val("inv-date")),
     order_number: val("inv-order-number"),
     description: val("inv-description"),
     amount_exc: num("inv-amount-exc"),
@@ -493,7 +723,7 @@ function collectReceiptData() {
     client_address: val("rec-address"),
     client_phone: val("rec-phone"),
     client_email: val("rec-email"),
-    date: val("rec-date"),
+    date: formatDateLong(val("rec-date")),
     order_number: val("rec-order-number"),
     description: val("rec-description"),
     amount_exc: num("rec-amount-exc"),
@@ -620,6 +850,8 @@ async function refreshHistory() {
       wrap.innerHTML = `<div class="empty-state">No documents generated yet. Documents you generate on the Register, Invoice, and Receipt tabs will appear here.</div>`;
       return;
     }
+    historyEntriesById.clear();
+    for (const e of entries) historyEntriesById.set(String(e.id), e);
     const rows = entries
       .map((e) => {
         const dt = new Date(e.generated_at);
@@ -627,7 +859,7 @@ async function refreshHistory() {
         const name = e.data?.client_name || `${e.data?.forename || ""} ${e.data?.surname || ""}`.trim() || "—";
         const ref = e.data?.number || "—";
         return `
-          <tr data-id="${e.id}">
+          <tr data-id="${e.id}" title="Double-click to view this ${e.doc_type}">
             <td><span class="doc-type-badge ${e.doc_type}">${e.doc_type}</span></td>
             <td>${escapeHtml(name)}</td>
             <td style="font-family: var(--mono); font-size:12px;">${escapeHtml(ref)}</td>
@@ -646,12 +878,147 @@ async function refreshHistory() {
         <tbody>${rows}</tbody>
       </table>`;
     wrap.querySelectorAll("button[data-action='delete']").forEach((btn) => {
-      btn.addEventListener("click", () => deleteHistoryEntry(btn.dataset.id));
+      btn.addEventListener("click", (e) => {
+        e.stopPropagation();
+        deleteHistoryEntry(btn.dataset.id);
+      });
+    });
+    wrap.querySelectorAll("tr[data-id]").forEach((row) => {
+      row.addEventListener("dblclick", () => {
+        const entry = historyEntriesById.get(row.dataset.id);
+        if (entry) loadHistoryEntryIntoForm(entry);
+      });
     });
   } catch (err) {
     wrap.innerHTML = `<div class="empty-state">Could not load history: ${escapeHtml(err.message)}</div>`;
   }
 }
+
+const historyEntriesById = new Map();
+
+// ── Loading a history entry back into its form, read-only first ────────
+//
+// Maps each doc_type to the prefix used throughout this file, the panel's
+// data-tab name, and which stored field maps to which input id. Kept as
+// one table rather than three near-duplicate functions so adding a field
+// later only means adding one line here.
+const HISTORY_FIELD_MAP = {
+  enrolment: {
+    prefix: "reg", tab: "register", fieldsetId: "reg-fieldset", bannerId: "reg-history-banner",
+    apply(data) {
+      setVal("reg-course-title", data.course_title);
+      courseComboboxes.reg.setValue(data.course_title || "");
+      setVal("reg-title", data.title);
+      setVal("reg-forename", data.forename);
+      setVal("reg-surname", data.surname);
+      setVal("reg-address", data.address);
+      setVal("reg-postcode", data.postcode);
+      setVal("reg-dob", parseDateSlashToIso(data.dob));
+      setVal("reg-ni", data.ni_number);
+      setVal("reg-email", data.client_email);
+      setVal("reg-phone", data.client_phone);
+      nationalityCombobox.setValue(data.nationality || "");
+      setVal("reg-edu-college-0", data.edu_college_0);
+      setVal("reg-edu-qual-0", data.edu_qual_0);
+      setVal("reg-edu-college-1", data.edu_college_1);
+      setVal("reg-edu-qual-1", data.edu_qual_1);
+      setVal("reg-edu-college-2", data.edu_college_2);
+      setVal("reg-edu-qual-2", data.edu_qual_2);
+      setVal("reg-employed", data.employed);
+      setVal("reg-employer-name", data.employer_name);
+      setVal("reg-employer-address", data.employer_address);
+      setVal("reg-employer-phone", data.employer_phone);
+      setVal("reg-job-title", data.job_title);
+      setVal("reg-emergency-name", data.emergency_name);
+      setVal("reg-emergency-phone", data.emergency_phone);
+      setVal("reg-emergency-relationship", data.emergency_relationship);
+      setVal("reg-ethnicity", data.ethnicity);
+      setChecked("reg-agree-dp", data.agree_data_protection);
+      setChecked("reg-agree-eq", data.agree_equality);
+      setVal("reg-date", parseDateSlashToIso(data.reg_date));
+    },
+  },
+  invoice: {
+    prefix: "inv", tab: "invoice", fieldsetId: "inv-fieldset", bannerId: "inv-history-banner",
+    apply(data) {
+      setVal("inv-client-name", data.client_name);
+      setVal("inv-company-name", data.company_name);
+      setVal("inv-address", data.client_address);
+      setVal("inv-phone", data.client_phone);
+      setVal("inv-email", data.client_email);
+      setVal("inv-date", parseDateLongToIso(data.date));
+      courseComboboxes.inv.setValue(data.description || "");
+      setVal("inv-order-number", data.order_number);
+      setVal("inv-description", data.description);
+      setVal("inv-amount-exc", data.amount_exc != null ? String(data.amount_exc) : "");
+      setVal("inv-vat-rate", data.vat_rate != null ? String(data.vat_rate) : "");
+      setVal("inv-deposit", data.deposit != null ? String(data.deposit) : "");
+      setVal("inv-status", data.status);
+      setChip(document.getElementById("inv-customer-id-chip"), data.customer_id || "—", !data.customer_id);
+      setChip(document.getElementById("inv-number-chip"), data.number || "—", !data.number);
+    },
+  },
+  receipt: {
+    prefix: "rec", tab: "receipt", fieldsetId: "rec-fieldset", bannerId: "rec-history-banner",
+    apply(data) {
+      setVal("rec-client-name", data.client_name);
+      setVal("rec-company-name", data.company_name);
+      setVal("rec-address", data.client_address);
+      setVal("rec-phone", data.client_phone);
+      setVal("rec-email", data.client_email);
+      setVal("rec-date", parseDateLongToIso(data.date));
+      courseComboboxes.rec.setValue(data.description || "");
+      setVal("rec-order-number", data.order_number);
+      setVal("rec-description", data.description);
+      setVal("rec-amount-exc", data.amount_exc != null ? String(data.amount_exc) : "");
+      setVal("rec-vat-rate", data.vat_rate != null ? String(data.vat_rate) : "");
+      setVal("rec-deposit", data.deposit != null ? String(data.deposit) : "");
+      setVal("rec-status", data.status);
+      setChip(document.getElementById("rec-customer-id-chip"), data.customer_id || "—", !data.customer_id);
+      setChip(document.getElementById("rec-number-chip"), data.number || "—", !data.number);
+    },
+  },
+};
+
+function setVal(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.value = value ?? "";
+}
+function setChecked(id, value) {
+  const el = document.getElementById(id);
+  if (el) el.checked = !!value;
+}
+
+function loadHistoryEntryIntoForm(entry) {
+  const cfg = HISTORY_FIELD_MAP[entry.doc_type];
+  if (!cfg) return;
+  cfg.apply(entry.data || {});
+
+  document.getElementById(cfg.fieldsetId).disabled = true;
+  document.getElementById(cfg.fieldsetId).classList.add("form-readonly");
+  const banner = document.getElementById(cfg.bannerId);
+  banner.classList.remove("hidden");
+  const ref = entry.data?.number
+    ? `Reference: ${entry.data.number}`
+    : `Generated ${new Date(entry.generated_at).toLocaleString("en-GB")}`;
+  document.getElementById(`${cfg.prefix}-history-banner-ref`).textContent = ref;
+
+  document.querySelector(`nav.tabs button[data-tab="${cfg.tab}"]`).click();
+}
+
+function exitHistoryReadOnly(prefix) {
+  const fieldsetId = `${prefix}-fieldset`;
+  document.getElementById(fieldsetId).disabled = false;
+  document.getElementById(fieldsetId).classList.remove("form-readonly");
+  document.getElementById(`${prefix}-history-banner`).classList.add("hidden");
+}
+
+document.getElementById("reg-history-edit-btn").addEventListener("click", () => exitHistoryReadOnly("reg"));
+document.getElementById("reg-history-dismiss-btn").addEventListener("click", () => exitHistoryReadOnly("reg"));
+document.getElementById("inv-history-edit-btn").addEventListener("click", () => exitHistoryReadOnly("inv"));
+document.getElementById("inv-history-dismiss-btn").addEventListener("click", () => exitHistoryReadOnly("inv"));
+document.getElementById("rec-history-edit-btn").addEventListener("click", () => exitHistoryReadOnly("rec"));
+document.getElementById("rec-history-dismiss-btn").addEventListener("click", () => exitHistoryReadOnly("rec"));
 
 async function deleteHistoryEntry(id) {
   if (!confirm("Delete this history entry? This cannot be undone.")) return;
@@ -751,9 +1118,7 @@ document.getElementById("course-save-btn").addEventListener("click", async () =>
   try {
     await apiFetch("/courses", { method: "PUT", body: JSON.stringify(courses) });
     state.courses = courses;
-    populateCourseSelect("reg-course-select");
-    populateCourseSelect("inv-course-select");
-    populateCourseSelect("rec-course-select");
+    for (const cb of Object.values(courseComboboxes)) cb.setOptions(state.courses);
     showStatus("course-status", "Course list saved.", "success");
   } catch (err) {
     showStatus("course-status", err.message, "error");

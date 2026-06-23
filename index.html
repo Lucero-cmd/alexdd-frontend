@@ -243,15 +243,61 @@
 
   .field-group { margin-bottom: 14px; }
 
-  .checkbox-row {
+  .checkbox-row { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--dark); margin-bottom: 10px; }
+  .checkbox-row input { width: 16px; height: 16px; margin: 0; }
+
+  /* ── Combobox (type-to-filter course / nationality picker) ──────────── */
+  .combobox { position: relative; }
+  .combobox input[type=text] { width: 100%; }
+  .combobox-list {
+    position: absolute;
+    top: calc(100% + 4px);
+    left: 0; right: 0;
+    max-height: 220px;
+    overflow-y: auto;
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
+    z-index: 20;
+    display: none;
+  }
+  .combobox-list.open { display: block; }
+  .combobox-option {
+    padding: 8px 10px;
+    font-size: 13.5px;
+    cursor: pointer;
+  }
+  .combobox-option:hover, .combobox-option.highlighted { background: var(--lightbg); }
+  .combobox-option .meta { color: var(--midgrey); font-size: 12px; margin-left: 6px; }
+  .combobox-empty { padding: 8px 10px; font-size: 13px; color: var(--midgrey); }
+
+  /* ── Form loaded from history, read-only until "Edit" is pressed ────── */
+  .history-load-banner {
     display: flex;
     align-items: center;
-    gap: 8px;
+    justify-content: space-between;
+    gap: 12px;
+    background: #FFF8E1;
+    border: 1px solid #FCE4A2;
+    color: #7A5B00;
+    border-radius: var(--radius);
+    padding: 10px 14px;
     font-size: 13px;
-    color: var(--dark);
-    margin-bottom: 10px;
+    margin-bottom: 16px;
   }
-  .checkbox-row input { width: 16px; height: 16px; margin: 0; }
+  .history-load-banner.hidden { display: none; }
+  .history-load-banner .btn { padding: 6px 12px; font-size: 12.5px; }
+  fieldset.form-readonly { border: none; margin: 0; padding: 0; }
+  #reg-fieldset, #inv-fieldset, #rec-fieldset { border: none; margin: 0; padding: 0; }
+  fieldset.form-readonly input,
+  fieldset.form-readonly textarea,
+  fieldset.form-readonly select,
+  fieldset.form-readonly .combobox input {
+    background: var(--lightbg);
+    color: var(--midgrey);
+  }
+  fieldset.form-readonly .combobox-list { display: none !important; }
 
   .btn {
     display: inline-flex;
@@ -471,15 +517,25 @@
 
     <!-- ── REGISTER (Enrolment) ─────────────────────────────────── -->
     <section class="panel active" id="panel-register">
+      <div class="history-load-banner hidden" id="reg-history-banner">
+        <span>Viewing a saved enrolment from History (read-only). <span id="reg-history-banner-ref"></span></span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="reg-history-edit-btn">Edit</button>
+          <button class="btn btn-secondary" id="reg-history-dismiss-btn">Close</button>
+        </div>
+      </div>
+      <fieldset id="reg-fieldset">
       <div class="layout-2col">
         <div>
           <div class="card">
             <h2 class="section-title">Course Enrolling For</h2>
             <div class="field-group">
               <label class="field-label">Course Title</label>
-              <select id="reg-course-select">
-                <option value="">— Select a course (or type custom below) —</option>
-              </select>
+              <div class="combobox" id="reg-course-combobox">
+                <input type="text" id="reg-course-search" placeholder="Type to search courses…" autocomplete="off">
+                <input type="hidden" id="reg-course-select">
+                <div class="combobox-list" id="reg-course-list"></div>
+              </div>
             </div>
             <div class="field-group">
               <label class="field-label">Course Title (free text)</label>
@@ -495,12 +551,16 @@
               <div class="field-group span-2"><label class="field-label">Surname</label><input type="text" id="reg-surname"></div>
               <div class="field-group span-2"><label class="field-label">Address</label><textarea id="reg-address"></textarea></div>
               <div class="field-group"><label class="field-label">Postcode</label><input type="text" id="reg-postcode"></div>
-              <div class="field-group"><label class="field-label">Date of Birth</label><input type="text" id="reg-dob" placeholder="DD/MM/YYYY"></div>
+              <div class="field-group"><label class="field-label">Date of Birth</label><input type="date" id="reg-dob"></div>
               <div class="field-group span-2"><label class="field-label">National Insurance Number</label><input type="text" id="reg-ni"></div>
               <div class="field-group"><label class="field-label">Email Address</label><input type="email" id="reg-email"></div>
               <div class="field-group"><label class="field-label">Contact Telephone</label><input type="tel" id="reg-phone"></div>
               <div class="field-group span-2"><label class="field-label">Nationality</label>
-                <select id="reg-nationality"></select>
+                <div class="combobox" id="reg-nationality-combobox">
+                  <input type="text" id="reg-nationality-search" placeholder="Type to search…" autocomplete="off">
+                  <input type="hidden" id="reg-nationality">
+                  <div class="combobox-list" id="reg-nationality-list"></div>
+                </div>
               </div>
             </div>
           </div>
@@ -566,7 +626,8 @@
             <h2 class="section-title">Declaration</h2>
             <div class="field-group">
               <label class="field-label">Date</label>
-              <input type="text" id="reg-date" placeholder="DD/MM/YYYY — leave blank for today">
+              <input type="date" id="reg-date">
+              <p style="font-size:11px;color:var(--midgrey);margin:4px 0 0;">Leave blank to use today's date.</p>
             </div>
             <div class="checkbox-row">
               <input type="checkbox" id="reg-agree-dp">
@@ -580,6 +641,10 @@
               <button class="btn btn-primary" id="reg-generate-btn">Generate Enrolment Form</button>
               <button class="btn btn-secondary" id="reg-email-btn" disabled>Email PDF&hellip;</button>
               <button class="btn btn-secondary" id="reg-clear-btn">Clear Form</button>
+            </div>
+            <div class="btn-row" style="margin-top:8px;">
+              <button class="btn btn-secondary" id="reg-to-invoice-btn" disabled>Create Invoice from this&hellip;</button>
+              <button class="btn btn-secondary" id="reg-to-receipt-btn" disabled>Create Receipt from this&hellip;</button>
             </div>
             <div class="status-msg hidden" id="reg-status"></div>
           </div>
@@ -595,10 +660,19 @@
           </div>
         </div>
       </div>
+      </fieldset>
     </section>
 
     <!-- ── INVOICE ──────────────────────────────────────────────── -->
     <section class="panel" id="panel-invoice">
+      <div class="history-load-banner hidden" id="inv-history-banner">
+        <span>Viewing a saved invoice from History (read-only). <span id="inv-history-banner-ref"></span></span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="inv-history-edit-btn">Edit</button>
+          <button class="btn btn-secondary" id="inv-history-dismiss-btn">Close</button>
+        </div>
+      </div>
+      <fieldset id="inv-fieldset">
       <div class="layout-2col">
         <div>
           <div class="card">
@@ -618,10 +692,14 @@
           <div class="card">
             <h2 class="section-title">Invoice Details</h2>
             <div class="field-grid">
-              <div class="field-group"><label class="field-label">Date</label><input type="text" id="inv-date" placeholder="DD Month YYYY"></div>
+              <div class="field-group"><label class="field-label">Date</label><input type="date" id="inv-date"></div>
               <div class="field-group"><label class="field-label">Order Number (optional)</label><input type="text" id="inv-order-number"></div>
               <div class="field-group span-2"><label class="field-label">Course</label>
-                <select id="inv-course-select"><option value="">— Select a course —</option></select>
+                <div class="combobox" id="inv-course-combobox">
+                  <input type="text" id="inv-course-search" placeholder="Type to search courses…" autocomplete="off">
+                  <input type="hidden" id="inv-course-select">
+                  <div class="combobox-list" id="inv-course-list"></div>
+                </div>
               </div>
               <div class="field-group span-2"><label class="field-label">Description</label><textarea id="inv-description"></textarea></div>
               <div class="field-group"><label class="field-label">Amount (excl. VAT) &pound;</label><input type="number" step="0.01" id="inv-amount-exc"></div>
@@ -651,10 +729,19 @@
           </div>
         </div>
       </div>
+      </fieldset>
     </section>
 
     <!-- ── RECEIPT ──────────────────────────────────────────────── -->
     <section class="panel" id="panel-receipt">
+      <div class="history-load-banner hidden" id="rec-history-banner">
+        <span>Viewing a saved receipt from History (read-only). <span id="rec-history-banner-ref"></span></span>
+        <div style="display:flex;gap:8px;">
+          <button class="btn btn-secondary" id="rec-history-edit-btn">Edit</button>
+          <button class="btn btn-secondary" id="rec-history-dismiss-btn">Close</button>
+        </div>
+      </div>
+      <fieldset id="rec-fieldset">
       <div class="layout-2col">
         <div>
           <div class="card">
@@ -674,10 +761,14 @@
           <div class="card">
             <h2 class="section-title">Receipt Details</h2>
             <div class="field-grid">
-              <div class="field-group"><label class="field-label">Date</label><input type="text" id="rec-date" placeholder="DD Month YYYY"></div>
+              <div class="field-group"><label class="field-label">Date</label><input type="date" id="rec-date"></div>
               <div class="field-group"><label class="field-label">Order Number (optional)</label><input type="text" id="rec-order-number"></div>
               <div class="field-group span-2"><label class="field-label">Course</label>
-                <select id="rec-course-select"><option value="">— Select a course —</option></select>
+                <div class="combobox" id="rec-course-combobox">
+                  <input type="text" id="rec-course-search" placeholder="Type to search courses…" autocomplete="off">
+                  <input type="hidden" id="rec-course-select">
+                  <div class="combobox-list" id="rec-course-list"></div>
+                </div>
               </div>
               <div class="field-group span-2"><label class="field-label">Description</label><textarea id="rec-description"></textarea></div>
               <div class="field-group"><label class="field-label">Amount (excl. VAT) &pound;</label><input type="number" step="0.01" id="rec-amount-exc"></div>
@@ -707,6 +798,7 @@
           </div>
         </div>
       </div>
+      </fieldset>
     </section>
 
     <!-- ── HISTORY ──────────────────────────────────────────────── -->
