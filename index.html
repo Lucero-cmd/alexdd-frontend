@@ -1,0 +1,774 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Alex D&amp;D Training — Document Generator</title>
+<style>
+  :root {
+    --navy: #1A237E;
+    --navy-dark: #131a5e;
+    --gold: #F9A825;
+    --dark: #1A1A2E;
+    --midgrey: #6B7280;
+    --lightbg: #F8F9FA;
+    --border: #E5E7EB;
+    --white: #FFFFFF;
+    --danger: #B91C1C;
+    --danger-bg: #FEF2F2;
+    --success: #15803D;
+    --success-bg: #F0FDF4;
+    --radius: 8px;
+    --mono: "SF Mono", "Cascadia Code", "Consolas", monospace;
+    --sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  }
+
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+
+  body {
+    font-family: var(--sans);
+    background: var(--lightbg);
+    color: var(--dark);
+    -webkit-font-smoothing: antialiased;
+  }
+
+  /* ── Login gate ─────────────────────────────────────────────────── */
+  #login-screen {
+    position: fixed; inset: 0;
+    display: flex; align-items: center; justify-content: center;
+    background: var(--navy);
+    z-index: 100;
+  }
+  #login-screen.hidden { display: none; }
+  .login-card {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 40px 36px;
+    width: 100%;
+    max-width: 360px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.25);
+  }
+  .login-card h1 {
+    font-size: 18px;
+    margin: 0 0 4px;
+    color: var(--navy);
+  }
+  .login-card p.sub {
+    font-size: 13px;
+    color: var(--midgrey);
+    margin: 0 0 24px;
+  }
+  .login-card input {
+    width: 100%;
+    padding: 11px 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    font-size: 14px;
+    margin-bottom: 12px;
+  }
+  .login-card button {
+    width: 100%;
+    padding: 11px 12px;
+    background: var(--navy);
+    color: var(--white);
+    border: none;
+    border-radius: var(--radius);
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+  }
+  .login-card button:hover { background: var(--navy-dark); }
+  .login-error {
+    color: var(--danger);
+    font-size: 13px;
+    margin-top: 10px;
+    min-height: 16px;
+  }
+  .login-server {
+    margin-top: 16px;
+  }
+  .login-server input {
+    margin-bottom: 0;
+    font-size: 12px;
+    color: var(--midgrey);
+  }
+  .login-server label {
+    font-size: 11px;
+    color: var(--midgrey);
+    display: block;
+    margin-bottom: 4px;
+  }
+
+  /* ── App shell ──────────────────────────────────────────────────── */
+  #app { display: none; min-height: 100vh; }
+  #app.visible { display: flex; flex-direction: column; }
+
+  header.topbar {
+    background: var(--navy);
+    color: var(--white);
+    padding: 14px 24px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+  }
+  header.topbar .brand {
+    font-size: 15px;
+    font-weight: 600;
+    letter-spacing: 0.2px;
+  }
+  header.topbar .brand .sub {
+    font-size: 11px;
+    font-weight: 400;
+    color: rgba(255,255,255,0.65);
+    margin-top: 1px;
+  }
+  header.topbar .top-actions {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+  }
+  header.topbar button.icon-btn {
+    background: rgba(255,255,255,0.12);
+    border: none;
+    color: var(--white);
+    width: 32px; height: 32px;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 14px;
+    display: flex; align-items: center; justify-content: center;
+  }
+  header.topbar button.icon-btn:hover { background: rgba(255,255,255,0.22); }
+
+  nav.tabs {
+    display: flex;
+    background: var(--white);
+    border-bottom: 1px solid var(--border);
+    padding: 0 24px;
+    overflow-x: auto;
+  }
+  nav.tabs button {
+    background: none;
+    border: none;
+    padding: 14px 16px;
+    font-size: 13.5px;
+    font-weight: 500;
+    color: var(--midgrey);
+    cursor: pointer;
+    border-bottom: 2px solid transparent;
+    white-space: nowrap;
+  }
+  nav.tabs button.active {
+    color: var(--navy);
+    border-bottom-color: var(--gold);
+  }
+  nav.tabs button:hover:not(.active) { color: var(--dark); }
+
+  main {
+    flex: 1;
+    padding: 24px;
+    max-width: 1200px;
+    width: 100%;
+    margin: 0 auto;
+  }
+
+  .panel {
+    display: none;
+  }
+  .panel.active { display: block; }
+
+  .layout-2col {
+    display: grid;
+    grid-template-columns: 1.3fr 0.9fr;
+    gap: 20px;
+    align-items: start;
+  }
+  @media (max-width: 880px) {
+    .layout-2col { grid-template-columns: 1fr; }
+  }
+
+  .card {
+    background: var(--white);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    padding: 20px;
+  }
+  .card + .card { margin-top: 16px; }
+
+  .card h2.section-title {
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--midgrey);
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    margin: 0 0 16px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .field-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px 16px;
+  }
+  .field-grid .span-2 { grid-column: 1 / -1; }
+  @media (max-width: 600px) {
+    .field-grid { grid-template-columns: 1fr; }
+  }
+
+  label.field-label {
+    display: block;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--midgrey);
+    margin-bottom: 5px;
+  }
+  input[type=text], input[type=email], input[type=tel], input[type=number],
+  input[type=date], textarea, select {
+    width: 100%;
+    padding: 9px 10px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-family: var(--sans);
+    color: var(--dark);
+    background: var(--white);
+  }
+  input:focus, textarea:focus, select:focus {
+    outline: none;
+    border-color: var(--navy);
+    box-shadow: 0 0 0 3px rgba(26,35,126,0.12);
+  }
+  textarea { resize: vertical; min-height: 60px; }
+
+  .field-group { margin-bottom: 14px; }
+
+  .checkbox-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: var(--dark);
+    margin-bottom: 10px;
+  }
+  .checkbox-row input { width: 16px; height: 16px; margin: 0; }
+
+  .btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 18px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    font-weight: 600;
+    border: none;
+    cursor: pointer;
+  }
+  .btn-primary { background: var(--navy); color: var(--white); }
+  .btn-primary:hover { background: var(--navy-dark); }
+  .btn-secondary { background: var(--lightbg); color: var(--dark); border: 1px solid var(--border); }
+  .btn-secondary:hover { background: #EEF0F2; }
+  .btn-danger { background: var(--danger-bg); color: var(--danger); border: 1px solid #FCA5A5; }
+  .btn-danger:hover { background: #FEE2E2; }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn-row { display: flex; gap: 10px; margin-top: 18px; flex-wrap: wrap; }
+
+  /* ── ID/number preview chip — the one signature element ──────────── */
+  .preview-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: var(--navy);
+    color: var(--white);
+    padding: 8px 14px;
+    border-radius: 999px;
+    font-family: var(--mono);
+    font-size: 12.5px;
+    font-weight: 600;
+    transition: background 0.2s ease;
+  }
+  .preview-chip .label {
+    font-family: var(--sans);
+    font-weight: 600;
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.4px;
+    color: rgba(255,255,255,0.65);
+  }
+  .preview-chip.pending { background: var(--midgrey); }
+  .preview-row { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 16px; }
+
+  /* ── Right column: PDF preview / status ────────────────────────── */
+  .preview-pane {
+    position: sticky;
+    top: 24px;
+  }
+  .pdf-frame-wrap {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--lightbg);
+    min-height: 360px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .pdf-frame-wrap iframe {
+    width: 100%;
+    height: 480px;
+    border: none;
+    display: none;
+  }
+  .pdf-frame-wrap iframe.visible { display: block; }
+  .pdf-placeholder {
+    color: var(--midgrey);
+    font-size: 13px;
+    text-align: center;
+    padding: 40px 20px;
+  }
+  .pdf-placeholder .icon { font-size: 32px; display: block; margin-bottom: 8px; opacity: 0.5; }
+
+  .status-msg {
+    margin-top: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    font-size: 13px;
+  }
+  .status-msg.error { background: var(--danger-bg); color: var(--danger); }
+  .status-msg.success { background: var(--success-bg); color: var(--success); }
+  .status-msg.hidden { display: none; }
+
+  /* ── History table ─────────────────────────────────────────────── */
+  table.history-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  table.history-table th {
+    text-align: left;
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--midgrey);
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+  }
+  table.history-table td {
+    padding: 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+  }
+  table.history-table tr:hover td { background: var(--lightbg); }
+  .doc-type-badge {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: capitalize;
+  }
+  .doc-type-badge.invoice { background: #E0E7FF; color: var(--navy); }
+  .doc-type-badge.receipt { background: #FEF3C7; color: #92400E; }
+  .doc-type-badge.enrolment { background: #DCFCE7; color: #166534; }
+  .row-actions { display: flex; gap: 6px; justify-content: flex-end; }
+  .row-actions button {
+    background: none; border: none; cursor: pointer;
+    font-size: 13px; color: var(--midgrey); padding: 4px 6px;
+    border-radius: 4px;
+  }
+  .row-actions button:hover { background: var(--lightbg); color: var(--dark); }
+  .row-actions button.delete:hover { color: var(--danger); }
+
+  .empty-state {
+    text-align: center;
+    padding: 50px 20px;
+    color: var(--midgrey);
+    font-size: 13.5px;
+  }
+
+  /* ── Course manager ─────────────────────────────────────────────── */
+  .course-row {
+    display: grid;
+    grid-template-columns: 1fr 110px 90px 32px;
+    gap: 8px;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .course-row input { font-size: 13px; }
+  .course-row button.remove {
+    background: none; border: none; color: var(--midgrey);
+    cursor: pointer; font-size: 16px;
+  }
+  .course-row button.remove:hover { color: var(--danger); }
+
+  /* ── Email modal ────────────────────────────────────────────────── */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,0.4);
+    display: none;
+    align-items: center; justify-content: center;
+    z-index: 50;
+    padding: 20px;
+  }
+  .modal-overlay.visible { display: flex; }
+  .modal-box {
+    background: var(--white);
+    border-radius: var(--radius);
+    padding: 24px;
+    max-width: 480px;
+    width: 100%;
+  }
+  .modal-box h3 { margin: 0 0 16px; font-size: 15px; color: var(--navy); }
+  .modal-actions { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
+
+  ::placeholder { color: #B0B5BD; }
+
+  @media (prefers-reduced-motion: reduce) {
+    * { transition: none !important; animation: none !important; }
+  }
+
+  :focus-visible { outline: 2px solid var(--navy); outline-offset: 2px; }
+</style>
+</head>
+<body>
+
+<!-- ── Login gate ──────────────────────────────────────────────────── -->
+<div id="login-screen">
+  <div class="login-card">
+    <h1>Alex D&amp;D Training</h1>
+    <p class="sub">Document Generator — sign in to continue</p>
+    <input type="password" id="login-password" placeholder="Password" autocomplete="current-password">
+    <button id="login-btn">Sign in</button>
+    <div class="login-error" id="login-error"></div>
+    <div class="login-server">
+      <label for="server-url">Server URL (advanced — leave default unless told otherwise)</label>
+      <input type="text" id="server-url" placeholder="https://your-backend.onrender.com">
+    </div>
+  </div>
+</div>
+
+<!-- ── App shell ───────────────────────────────────────────────────── -->
+<div id="app">
+  <header class="topbar">
+    <div class="brand">
+      Alex D&amp;D Training
+      <div class="sub">Document Generator</div>
+    </div>
+    <div class="top-actions">
+      <button class="icon-btn" id="logout-btn" title="Sign out">&#x2715;</button>
+    </div>
+  </header>
+
+  <nav class="tabs">
+    <button data-tab="register" class="active">Register</button>
+    <button data-tab="invoice">Invoice</button>
+    <button data-tab="receipt">Receipt</button>
+    <button data-tab="history">History</button>
+    <button data-tab="settings">Settings</button>
+  </nav>
+
+  <main>
+
+    <!-- ── REGISTER (Enrolment) ─────────────────────────────────── -->
+    <section class="panel active" id="panel-register">
+      <div class="layout-2col">
+        <div>
+          <div class="card">
+            <h2 class="section-title">Course Enrolling For</h2>
+            <div class="field-group">
+              <label class="field-label">Course Title</label>
+              <select id="reg-course-select">
+                <option value="">— Select a course (or type custom below) —</option>
+              </select>
+            </div>
+            <div class="field-group">
+              <label class="field-label">Course Title (free text)</label>
+              <input type="text" id="reg-course-title">
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Personal Details</h2>
+            <div class="field-grid">
+              <div class="field-group"><label class="field-label">Title</label><input type="text" id="reg-title" placeholder="Mr / Mrs / Ms"></div>
+              <div class="field-group"><label class="field-label">Forename(s)</label><input type="text" id="reg-forename"></div>
+              <div class="field-group span-2"><label class="field-label">Surname</label><input type="text" id="reg-surname"></div>
+              <div class="field-group span-2"><label class="field-label">Address</label><textarea id="reg-address"></textarea></div>
+              <div class="field-group"><label class="field-label">Postcode</label><input type="text" id="reg-postcode"></div>
+              <div class="field-group"><label class="field-label">Date of Birth</label><input type="text" id="reg-dob" placeholder="DD/MM/YYYY"></div>
+              <div class="field-group span-2"><label class="field-label">National Insurance Number</label><input type="text" id="reg-ni"></div>
+              <div class="field-group"><label class="field-label">Email Address</label><input type="email" id="reg-email"></div>
+              <div class="field-group"><label class="field-label">Contact Telephone</label><input type="tel" id="reg-phone"></div>
+              <div class="field-group span-2"><label class="field-label">Nationality</label>
+                <select id="reg-nationality"></select>
+              </div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Education &amp; Training</h2>
+            <div class="field-grid">
+              <div class="field-group"><label class="field-label">College / University 1</label><input type="text" id="reg-edu-college-0"></div>
+              <div class="field-group"><label class="field-label">Subject &amp; Qualification 1</label><input type="text" id="reg-edu-qual-0"></div>
+              <div class="field-group"><label class="field-label">College / University 2</label><input type="text" id="reg-edu-college-1"></div>
+              <div class="field-group"><label class="field-label">Subject &amp; Qualification 2</label><input type="text" id="reg-edu-qual-1"></div>
+              <div class="field-group"><label class="field-label">College / University 3</label><input type="text" id="reg-edu-college-2"></div>
+              <div class="field-group"><label class="field-label">Subject &amp; Qualification 3</label><input type="text" id="reg-edu-qual-2"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Employment</h2>
+            <div class="field-grid">
+              <div class="field-group"><label class="field-label">Currently Employed?</label><input type="text" id="reg-employed" placeholder="Yes / No"></div>
+              <div class="field-group"><label class="field-label">Employer Name</label><input type="text" id="reg-employer-name"></div>
+              <div class="field-group span-2"><label class="field-label">Employer Address</label><textarea id="reg-employer-address"></textarea></div>
+              <div class="field-group"><label class="field-label">Employer Contact Number</label><input type="tel" id="reg-employer-phone"></div>
+              <div class="field-group"><label class="field-label">Job Title / Status</label><input type="text" id="reg-job-title"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Emergency Contact</h2>
+            <div class="field-grid">
+              <div class="field-group span-2"><label class="field-label">Name</label><input type="text" id="reg-emergency-name"></div>
+              <div class="field-group"><label class="field-label">Telephone Number</label><input type="tel" id="reg-emergency-phone"></div>
+              <div class="field-group"><label class="field-label">Relationship</label><input type="text" id="reg-emergency-relationship"></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Equal Opportunities</h2>
+            <div class="field-group">
+              <label class="field-label">Ethnicity</label>
+              <select id="reg-ethnicity">
+                <option value=""></option>
+                <option>White British</option>
+                <option>White Irish</option>
+                <option>White Other</option>
+                <option>Mixed White &amp; Asian</option>
+                <option>Mixed White &amp; Black African</option>
+                <option>Mixed White Black Caribbean</option>
+                <option>African</option>
+                <option>Caribbean</option>
+                <option>Other Black Background</option>
+                <option>Arab</option>
+                <option>Bangladeshi</option>
+                <option>Indian</option>
+                <option>Pakistani</option>
+                <option>Chinese</option>
+                <option>Other Asian Background</option>
+              </select>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Declaration</h2>
+            <div class="field-group">
+              <label class="field-label">Date</label>
+              <input type="text" id="reg-date" placeholder="DD/MM/YYYY — leave blank for today">
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="reg-agree-dp">
+              <label for="reg-agree-dp">I agree to the Data Protection / Disability Declaration terms.</label>
+            </div>
+            <div class="checkbox-row">
+              <input type="checkbox" id="reg-agree-eq">
+              <label for="reg-agree-eq">I agree to the Equality Act provisions outlined by Alex D&amp;D Training.</label>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="reg-generate-btn">Generate Enrolment Form</button>
+              <button class="btn btn-secondary" id="reg-email-btn" disabled>Email PDF&hellip;</button>
+              <button class="btn btn-secondary" id="reg-clear-btn">Clear Form</button>
+            </div>
+            <div class="status-msg hidden" id="reg-status"></div>
+          </div>
+        </div>
+
+        <div class="preview-pane">
+          <div class="card">
+            <h2 class="section-title">Preview</h2>
+            <div class="pdf-frame-wrap" id="reg-pdf-wrap">
+              <div class="pdf-placeholder"><span class="icon">&#128196;</span>Generated PDF will appear here</div>
+              <iframe id="reg-pdf-frame"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── INVOICE ──────────────────────────────────────────────── -->
+    <section class="panel" id="panel-invoice">
+      <div class="layout-2col">
+        <div>
+          <div class="card">
+            <h2 class="section-title">Bill To</h2>
+            <div class="field-grid">
+              <div class="field-group span-2"><label class="field-label">Client / Company Name</label><input type="text" id="inv-client-name"></div>
+              <div class="field-group span-2"><label class="field-label">Company Name (optional)</label><input type="text" id="inv-company-name"></div>
+              <div class="field-group span-2"><label class="field-label">Address</label><textarea id="inv-address"></textarea></div>
+              <div class="field-group"><label class="field-label">Phone</label><input type="tel" id="inv-phone"></div>
+              <div class="field-group"><label class="field-label">Email</label><input type="email" id="inv-email"></div>
+            </div>
+            <div class="preview-row">
+              <div class="preview-chip pending" id="inv-customer-id-chip"><span class="label">Customer ID</span><span class="value">&mdash;</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Invoice Details</h2>
+            <div class="field-grid">
+              <div class="field-group"><label class="field-label">Date</label><input type="text" id="inv-date" placeholder="DD Month YYYY"></div>
+              <div class="field-group"><label class="field-label">Order Number (optional)</label><input type="text" id="inv-order-number"></div>
+              <div class="field-group span-2"><label class="field-label">Course</label>
+                <select id="inv-course-select"><option value="">— Select a course —</option></select>
+              </div>
+              <div class="field-group span-2"><label class="field-label">Description</label><textarea id="inv-description"></textarea></div>
+              <div class="field-group"><label class="field-label">Amount (excl. VAT) &pound;</label><input type="number" step="0.01" id="inv-amount-exc"></div>
+              <div class="field-group"><label class="field-label">VAT Rate %</label><input type="number" step="1" id="inv-vat-rate" value="0"></div>
+              <div class="field-group"><label class="field-label">Deposit Paid &pound; (optional)</label><input type="number" step="0.01" id="inv-deposit" value="0"></div>
+              <div class="field-group"><label class="field-label">Status</label><input type="text" id="inv-status" placeholder="Unpaid / Paid / Overdue"></div>
+            </div>
+            <div class="preview-row">
+              <div class="preview-chip pending" id="inv-number-chip"><span class="label">Invoice No.</span><span class="value">&mdash;</span></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="inv-generate-btn">Generate Invoice</button>
+              <button class="btn btn-secondary" id="inv-email-btn" disabled>Email PDF&hellip;</button>
+              <button class="btn btn-secondary" id="inv-clear-btn">Clear Form</button>
+            </div>
+            <div class="status-msg hidden" id="inv-status-msg"></div>
+          </div>
+        </div>
+
+        <div class="preview-pane">
+          <div class="card">
+            <h2 class="section-title">Preview</h2>
+            <div class="pdf-frame-wrap" id="inv-pdf-wrap">
+              <div class="pdf-placeholder"><span class="icon">&#128196;</span>Generated PDF will appear here</div>
+              <iframe id="inv-pdf-frame"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── RECEIPT ──────────────────────────────────────────────── -->
+    <section class="panel" id="panel-receipt">
+      <div class="layout-2col">
+        <div>
+          <div class="card">
+            <h2 class="section-title">Received From</h2>
+            <div class="field-grid">
+              <div class="field-group span-2"><label class="field-label">Client / Company Name</label><input type="text" id="rec-client-name"></div>
+              <div class="field-group span-2"><label class="field-label">Company Name (optional)</label><input type="text" id="rec-company-name"></div>
+              <div class="field-group span-2"><label class="field-label">Address</label><textarea id="rec-address"></textarea></div>
+              <div class="field-group"><label class="field-label">Phone</label><input type="tel" id="rec-phone"></div>
+              <div class="field-group"><label class="field-label">Email</label><input type="email" id="rec-email"></div>
+            </div>
+            <div class="preview-row">
+              <div class="preview-chip pending" id="rec-customer-id-chip"><span class="label">Customer ID</span><span class="value">&mdash;</span></div>
+            </div>
+          </div>
+
+          <div class="card">
+            <h2 class="section-title">Receipt Details</h2>
+            <div class="field-grid">
+              <div class="field-group"><label class="field-label">Date</label><input type="text" id="rec-date" placeholder="DD Month YYYY"></div>
+              <div class="field-group"><label class="field-label">Order Number (optional)</label><input type="text" id="rec-order-number"></div>
+              <div class="field-group span-2"><label class="field-label">Course</label>
+                <select id="rec-course-select"><option value="">— Select a course —</option></select>
+              </div>
+              <div class="field-group span-2"><label class="field-label">Description</label><textarea id="rec-description"></textarea></div>
+              <div class="field-group"><label class="field-label">Amount (excl. VAT) &pound;</label><input type="number" step="0.01" id="rec-amount-exc"></div>
+              <div class="field-group"><label class="field-label">VAT Rate %</label><input type="number" step="1" id="rec-vat-rate" value="0"></div>
+              <div class="field-group"><label class="field-label">Deposit Paid &pound; (optional)</label><input type="number" step="0.01" id="rec-deposit" value="0"></div>
+              <div class="field-group"><label class="field-label">Status</label><input type="text" id="rec-status" placeholder="Paid in Full"></div>
+            </div>
+            <div class="preview-row">
+              <div class="preview-chip pending" id="rec-number-chip"><span class="label">Receipt No.</span><span class="value">&mdash;</span></div>
+            </div>
+            <div class="btn-row">
+              <button class="btn btn-primary" id="rec-generate-btn">Generate Receipt</button>
+              <button class="btn btn-secondary" id="rec-email-btn" disabled>Email PDF&hellip;</button>
+              <button class="btn btn-secondary" id="rec-clear-btn">Clear Form</button>
+            </div>
+            <div class="status-msg hidden" id="rec-status-msg"></div>
+          </div>
+        </div>
+
+        <div class="preview-pane">
+          <div class="card">
+            <h2 class="section-title">Preview</h2>
+            <div class="pdf-frame-wrap" id="rec-pdf-wrap">
+              <div class="pdf-placeholder"><span class="icon">&#128196;</span>Generated PDF will appear here</div>
+              <iframe id="rec-pdf-frame"></iframe>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── HISTORY ──────────────────────────────────────────────── -->
+    <section class="panel" id="panel-history">
+      <div class="card">
+        <h2 class="section-title">Generated Documents</h2>
+        <div class="btn-row" style="margin-top:0; margin-bottom:16px;">
+          <button class="btn btn-secondary" id="history-refresh-btn">Refresh</button>
+          <button class="btn btn-danger" id="history-clear-all-btn">Clear All History</button>
+        </div>
+        <div id="history-table-wrap"></div>
+      </div>
+    </section>
+
+    <!-- ── SETTINGS ─────────────────────────────────────────────── -->
+    <section class="panel" id="panel-settings">
+      <div class="layout-2col">
+        <div class="card">
+          <h2 class="section-title">Email (SMTP) Settings</h2>
+          <div class="field-grid">
+            <div class="field-group span-2"><label class="field-label">Host</label><input type="text" id="smtp-host" placeholder="mail.alexdd.co.uk"></div>
+            <div class="field-group"><label class="field-label">Port</label><input type="number" id="smtp-port" value="465"></div>
+            <div class="field-group"><label class="field-label">From Email</label><input type="email" id="smtp-from"></div>
+            <div class="field-group span-2"><label class="field-label">Username</label><input type="text" id="smtp-username"></div>
+            <div class="field-group span-2"><label class="field-label">Password</label><input type="text" id="smtp-password" placeholder="Stored on the server, not in this browser"></div>
+          </div>
+          <div class="btn-row">
+            <button class="btn btn-primary" id="smtp-save-btn">Save Email Settings</button>
+          </div>
+          <div class="status-msg hidden" id="smtp-status"></div>
+        </div>
+
+        <div class="card">
+          <h2 class="section-title">Course List</h2>
+          <div id="course-rows"></div>
+          <div class="btn-row">
+            <button class="btn btn-secondary" id="course-add-btn">+ Add Course</button>
+            <button class="btn btn-primary" id="course-save-btn">Save Course List</button>
+          </div>
+          <div class="status-msg hidden" id="course-status"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ── Email modal ─────────────────────────────────────────────────── -->
+<div class="modal-overlay" id="email-modal">
+  <div class="modal-box">
+    <h3 id="email-modal-title">Send via Email</h3>
+    <div class="field-group"><label class="field-label">To</label><input type="email" id="email-to"></div>
+    <div class="field-group"><label class="field-label">Subject</label><input type="text" id="email-subject"></div>
+    <div class="field-group"><label class="field-label">Message</label><textarea id="email-body" style="min-height:120px;"></textarea></div>
+    <div class="status-msg hidden" id="email-modal-status"></div>
+    <div class="modal-actions">
+      <button class="btn btn-secondary" id="email-cancel-btn">Cancel</button>
+      <button class="btn btn-primary" id="email-send-btn">Send</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
