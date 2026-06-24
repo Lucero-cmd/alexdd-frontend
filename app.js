@@ -629,6 +629,40 @@ document.getElementById("reg-email-btn").addEventListener("click", () => {
   });
 });
 
+// Sends a genuinely blank enrolment form — every field empty — regardless
+// of whatever is currently typed into the Register tab. Useful for handing
+// someone a form to print and fill in by hand before they've registered.
+// generate_enrolment() already renders an all-empty dict cleanly (every
+// field is read with data.get(key, "")), so no backend change was needed.
+function buildBlankEnrolmentData() {
+  return {
+    course_title: "", title: "", forename: "", surname: "", address: "",
+    postcode: "", dob: "", ni_number: "", client_email: "", client_phone: "",
+    nationality: "", edu_college_0: "", edu_qual_0: "", edu_college_1: "",
+    edu_qual_1: "", edu_college_2: "", edu_qual_2: "", employed: "",
+    employer_name: "", employer_address: "", employer_phone: "", job_title: "",
+    emergency_name: "", emergency_phone: "", emergency_relationship: "",
+    ethnicity: "", agree_data_protection: false, agree_equality: false,
+    reg_date: null,
+  };
+}
+
+document.getElementById("reg-email-blank-btn").addEventListener("click", () => {
+  openEmailModal({
+    docType: "enrolment",
+    data: buildBlankEnrolmentData(),
+    toDefault: "",
+    subjectDefault: "Alex D&D Training – Enrolment Form",
+    bodyDefault:
+      `Hello,\n\n` +
+      `Please find attached a blank Candidate Enrolment Form from Alex D&D Training Ltd. ` +
+      `Please print, complete, and return it to us.\n\n` +
+      `If you have any questions, please do not hesitate to contact us.\n\n` +
+      `Kind regards,\nAlex D&D Training Ltd`,
+    filename: "Enrolment_Form_Blank.pdf",
+  });
+});
+
 // ── INVOICE ──────────────────────────────────────────────────────────────
 
 let lastInvoiceData = null;
@@ -688,6 +722,7 @@ document.getElementById("inv-generate-btn").addEventListener("click", async () =
 document.getElementById("inv-clear-btn").addEventListener("click", () => {
   document.querySelectorAll("#panel-invoice input, #panel-invoice textarea")
     .forEach((el) => { if (el.type !== "number") el.value = ""; });
+  document.querySelectorAll("#panel-invoice select").forEach((el) => (el.value = ""));
   document.getElementById("inv-vat-rate").value = "0";
   document.getElementById("inv-deposit").value = "0";
   setChip(document.getElementById("inv-customer-id-chip"), "—", true);
@@ -768,6 +803,7 @@ document.getElementById("rec-generate-btn").addEventListener("click", async () =
 document.getElementById("rec-clear-btn").addEventListener("click", () => {
   document.querySelectorAll("#panel-receipt input, #panel-receipt textarea")
     .forEach((el) => { if (el.type !== "number") el.value = ""; });
+  document.querySelectorAll("#panel-receipt select").forEach((el) => (el.value = ""));
   document.getElementById("rec-vat-rate").value = "0";
   document.getElementById("rec-deposit").value = "0";
   setChip(document.getElementById("rec-customer-id-chip"), "—", true);
@@ -841,58 +877,86 @@ document.getElementById("email-send-btn").addEventListener("click", async () => 
 
 // ── HISTORY ──────────────────────────────────────────────────────────────
 
+let allHistoryEntries = [];
+
 async function refreshHistory() {
   const wrap = document.getElementById("history-table-wrap");
   wrap.innerHTML = `<div class="empty-state">Loading…</div>`;
   try {
-    const entries = await apiJson("/history");
-    if (!entries.length) {
-      wrap.innerHTML = `<div class="empty-state">No documents generated yet. Documents you generate on the Register, Invoice, and Receipt tabs will appear here.</div>`;
-      return;
-    }
-    historyEntriesById.clear();
-    for (const e of entries) historyEntriesById.set(String(e.id), e);
-    const rows = entries
-      .map((e) => {
-        const dt = new Date(e.generated_at);
-        const when = isNaN(dt) ? e.generated_at : dt.toLocaleString("en-GB");
-        const name = e.data?.client_name || `${e.data?.forename || ""} ${e.data?.surname || ""}`.trim() || "—";
-        const ref = e.data?.number || "—";
-        return `
-          <tr data-id="${e.id}" title="Double-click to view this ${e.doc_type}">
-            <td><span class="doc-type-badge ${e.doc_type}">${e.doc_type}</span></td>
-            <td>${escapeHtml(name)}</td>
-            <td style="font-family: var(--mono); font-size:12px;">${escapeHtml(ref)}</td>
-            <td>${escapeHtml(when)}</td>
-            <td>
-              <div class="row-actions">
-                <button class="delete" data-action="delete" data-id="${e.id}" title="Delete">Delete</button>
-              </div>
-            </td>
-          </tr>`;
-      })
-      .join("");
-    wrap.innerHTML = `
-      <table class="history-table">
-        <thead><tr><th>Type</th><th>Client</th><th>Reference</th><th>Generated</th><th></th></tr></thead>
-        <tbody>${rows}</tbody>
-      </table>`;
-    wrap.querySelectorAll("button[data-action='delete']").forEach((btn) => {
-      btn.addEventListener("click", (e) => {
-        e.stopPropagation();
-        deleteHistoryEntry(btn.dataset.id);
-      });
-    });
-    wrap.querySelectorAll("tr[data-id]").forEach((row) => {
-      row.addEventListener("dblclick", () => {
-        const entry = historyEntriesById.get(row.dataset.id);
-        if (entry) loadHistoryEntryIntoForm(entry);
-      });
-    });
+    allHistoryEntries = await apiJson("/history");
+    renderHistoryRows(applyHistorySearch(allHistoryEntries));
   } catch (err) {
     wrap.innerHTML = `<div class="empty-state">Could not load history: ${escapeHtml(err.message)}</div>`;
   }
 }
+
+// Matches against whichever name field the entry actually has: client_name
+// for invoices/receipts, or forename+surname for enrolments. Case-insensitive,
+// substring match — "ade" matches "Ademola", matches "Wade", etc.
+function applyHistorySearch(entries) {
+  const q = document.getElementById("history-search").value.trim().toLowerCase();
+  if (!q) return entries;
+  return entries.filter((e) => {
+    const name = e.data?.client_name || `${e.data?.forename || ""} ${e.data?.surname || ""}`.trim();
+    return name.toLowerCase().includes(q);
+  });
+}
+
+function renderHistoryRows(entries) {
+  const wrap = document.getElementById("history-table-wrap");
+  if (!allHistoryEntries.length) {
+    wrap.innerHTML = `<div class="empty-state">No documents generated yet. Documents you generate on the Register, Invoice, and Receipt tabs will appear here.</div>`;
+    return;
+  }
+  if (!entries.length) {
+    wrap.innerHTML = `<div class="empty-state">No documents match that name.</div>`;
+    return;
+  }
+  historyEntriesById.clear();
+  for (const e of entries) historyEntriesById.set(String(e.id), e);
+  const rows = entries
+    .map((e) => {
+      const dt = new Date(e.generated_at);
+      const when = isNaN(dt) ? e.generated_at : dt.toLocaleString("en-GB");
+      const name = e.data?.client_name || `${e.data?.forename || ""} ${e.data?.surname || ""}`.trim() || "—";
+      const ref = e.data?.number || "—";
+      return `
+        <tr data-id="${e.id}" title="Double-click to view this ${e.doc_type}">
+          <td><span class="doc-type-badge ${e.doc_type}">${e.doc_type}</span></td>
+          <td>${escapeHtml(name)}</td>
+          <td style="font-family: var(--mono); font-size:12px;">${escapeHtml(ref)}</td>
+          <td>${escapeHtml(when)}</td>
+          <td>
+            <div class="row-actions">
+              <button class="delete" data-action="delete" data-id="${e.id}" title="Delete">Delete</button>
+            </div>
+          </td>
+        </tr>`;
+    })
+    .join("");
+  wrap.innerHTML = `
+    <table class="history-table">
+      <thead><tr><th>Type</th><th>Client</th><th>Reference</th><th>Generated</th><th></th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+  wrap.querySelectorAll("button[data-action='delete']").forEach((btn) => {
+    btn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      deleteHistoryEntry(btn.dataset.id);
+    });
+  });
+  wrap.querySelectorAll("tr[data-id]").forEach((row) => {
+    row.addEventListener("dblclick", () => {
+      const entry = historyEntriesById.get(row.dataset.id);
+      if (entry) loadHistoryEntryIntoForm(entry);
+    });
+  });
+}
+
+document.getElementById("history-search").addEventListener(
+  "input",
+  debounce(() => renderHistoryRows(applyHistorySearch(allHistoryEntries)), 150)
+);
 
 const historyEntriesById = new Map();
 
@@ -1054,11 +1118,7 @@ function escapeHtml(str) {
 async function loadSmtpSettings() {
   try {
     const s = await apiJson("/settings/smtp");
-    document.getElementById("smtp-host").value = s.host || "";
-    document.getElementById("smtp-port").value = s.port || 465;
     document.getElementById("smtp-from").value = s.from_email || "";
-    document.getElementById("smtp-username").value = s.username || "";
-    document.getElementById("smtp-password").value = s.password || "";
   } catch (_) {}
 }
 
@@ -1067,13 +1127,7 @@ document.getElementById("smtp-save-btn").addEventListener("click", async () => {
   try {
     await apiFetch("/settings/smtp", {
       method: "PUT",
-      body: JSON.stringify({
-        host: val("smtp-host"),
-        port: parseInt(val("smtp-port"), 10) || 465,
-        username: val("smtp-username"),
-        password: val("smtp-password"),
-        from_email: val("smtp-from"),
-      }),
+      body: JSON.stringify({ from_email: val("smtp-from") }),
     });
     showStatus("smtp-status", "Email settings saved.", "success");
   } catch (err) {

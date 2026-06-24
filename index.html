@@ -546,7 +546,17 @@
           <div class="card">
             <h2 class="section-title">Personal Details</h2>
             <div class="field-grid">
-              <div class="field-group"><label class="field-label">Title</label><input type="text" id="reg-title" placeholder="Mr / Mrs / Ms"></div>
+              <div class="field-group"><label class="field-label">Title</label>
+                <select id="reg-title">
+                  <option value="">— Select —</option>
+                  <option>Mr</option>
+                  <option>Mrs</option>
+                  <option>Ms</option>
+                  <option>Miss</option>
+                  <option>Dr</option>
+                  <option>Other</option>
+                </select>
+              </div>
               <div class="field-group"><label class="field-label">Forename(s)</label><input type="text" id="reg-forename"></div>
               <div class="field-group span-2"><label class="field-label">Surname</label><input type="text" id="reg-surname"></div>
               <div class="field-group span-2"><label class="field-label">Address</label><textarea id="reg-address"></textarea></div>
@@ -645,6 +655,7 @@
             <div class="btn-row" style="margin-top:8px;">
               <button class="btn btn-secondary" id="reg-to-invoice-btn" disabled>Create Invoice from this&hellip;</button>
               <button class="btn btn-secondary" id="reg-to-receipt-btn" disabled>Create Receipt from this&hellip;</button>
+              <button class="btn btn-secondary" id="reg-email-blank-btn">Send Blank Form&hellip;</button>
             </div>
             <div class="status-msg hidden" id="reg-status"></div>
           </div>
@@ -705,7 +716,15 @@
               <div class="field-group"><label class="field-label">Amount (excl. VAT) &pound;</label><input type="number" step="0.01" id="inv-amount-exc"></div>
               <div class="field-group"><label class="field-label">VAT Rate %</label><input type="number" step="1" id="inv-vat-rate" value="0"></div>
               <div class="field-group"><label class="field-label">Deposit Paid &pound; (optional)</label><input type="number" step="0.01" id="inv-deposit" value="0"></div>
-              <div class="field-group"><label class="field-label">Status</label><input type="text" id="inv-status" placeholder="Unpaid / Paid / Overdue"></div>
+              <div class="field-group"><label class="field-label">Status</label>
+                <select id="inv-status">
+                  <option value="">— Select —</option>
+                  <option>Unpaid</option>
+                  <option>Paid</option>
+                  <option>Overdue</option>
+                  <option>Partially Paid</option>
+                </select>
+              </div>
             </div>
             <div class="preview-row">
               <div class="preview-chip pending" id="inv-number-chip"><span class="label">Invoice No.</span><span class="value">&mdash;</span></div>
@@ -774,7 +793,13 @@
               <div class="field-group"><label class="field-label">Amount (excl. VAT) &pound;</label><input type="number" step="0.01" id="rec-amount-exc"></div>
               <div class="field-group"><label class="field-label">VAT Rate %</label><input type="number" step="1" id="rec-vat-rate" value="0"></div>
               <div class="field-group"><label class="field-label">Deposit Paid &pound; (optional)</label><input type="number" step="0.01" id="rec-deposit" value="0"></div>
-              <div class="field-group"><label class="field-label">Status</label><input type="text" id="rec-status" placeholder="Paid in Full"></div>
+              <div class="field-group"><label class="field-label">Status</label>
+                <select id="rec-status">
+                  <option value="">— Select —</option>
+                  <option>Paid in Full</option>
+                  <option>Partially Paid</option>
+                </select>
+              </div>
             </div>
             <div class="preview-row">
               <div class="preview-chip pending" id="rec-number-chip"><span class="label">Receipt No.</span><span class="value">&mdash;</span></div>
@@ -809,6 +834,10 @@
           <button class="btn btn-secondary" id="history-refresh-btn">Refresh</button>
           <button class="btn btn-danger" id="history-clear-all-btn">Clear All History</button>
         </div>
+        <div class="field-group" style="max-width:320px; margin-bottom:14px;">
+          <label class="field-label">Search by name</label>
+          <input type="text" id="history-search" placeholder="Type a client or candidate name…" autocomplete="off">
+        </div>
         <div id="history-table-wrap"></div>
       </div>
     </section>
@@ -817,13 +846,17 @@
     <section class="panel" id="panel-settings">
       <div class="layout-2col">
         <div class="card">
-          <h2 class="section-title">Email (SMTP) Settings</h2>
+          <h2 class="section-title">Email Sending</h2>
+          <p style="font-size:12.5px; color:var(--midgrey); margin:-4px 0 14px;">
+            Emails are sent via the Resend API. The API key is configured on
+            the server (Render environment variables) and is never stored or
+            visible here. This field only controls what recipients see as
+            the sender address.
+          </p>
           <div class="field-grid">
-            <div class="field-group span-2"><label class="field-label">Host</label><input type="text" id="smtp-host" placeholder="mail.alexdd.co.uk"></div>
-            <div class="field-group"><label class="field-label">Port</label><input type="number" id="smtp-port" value="465"></div>
-            <div class="field-group"><label class="field-label">From Email</label><input type="email" id="smtp-from"></div>
-            <div class="field-group span-2"><label class="field-label">Username</label><input type="text" id="smtp-username"></div>
-            <div class="field-group span-2"><label class="field-label">Password</label><input type="text" id="smtp-password" placeholder="Stored on the server, not in this browser"></div>
+            <div class="field-group span-2"><label class="field-label">From Email</label>
+              <input type="text" id="smtp-from" placeholder="Alex D&amp;D Training &lt;info@alexdd.co.uk&gt;">
+            </div>
           </div>
           <div class="btn-row">
             <button class="btn btn-primary" id="smtp-save-btn">Save Email Settings</button>
