@@ -701,15 +701,18 @@ document.getElementById("inv-generate-btn").addEventListener("click", async () =
       throw new Error(body.detail || `Failed (${res.status})`);
     }
     // Pull the minted number/customer ID back from the response headers
-    // so the chips reflect what was actually committed, not just the preview.
-    const disposition = res.headers.get("content-disposition") || "";
-    const match = disposition.match(/filename="?([^"]+)"?/);
+    // so the chips reflect what was actually committed, not just the
+    // preview, and so a subsequent Email send reuses the same number and
+    // customer ID instead of the backend minting a second, different one
+    // for the same invoice.
+    const docNumber = res.headers.get("x-document-number") || "";
+    const customerId = res.headers.get("x-customer-id") || "";
     const blob = await res.blob();
-    lastInvoiceData = data;
+    lastInvoiceData = { ...data, number: docNumber, customer_id: customerId };
     if (lastInvoiceBlobUrl) URL.revokeObjectURL(lastInvoiceBlobUrl);
     lastInvoiceBlobUrl = showPdfBlob("inv", blob);
     document.getElementById("inv-email-btn").disabled = false;
-    if (match) setChip(document.getElementById("inv-number-chip"), match[1].replace(".pdf", ""), false);
+    if (docNumber) setChip(document.getElementById("inv-number-chip"), docNumber, false);
     updateInvCustomerIdPreview();
     showStatus("inv-status-msg", "Invoice generated.", "success");
   } catch (err) {
@@ -783,14 +786,14 @@ document.getElementById("rec-generate-btn").addEventListener("click", async () =
       const body = await res.json().catch(() => ({}));
       throw new Error(body.detail || `Failed (${res.status})`);
     }
-    const disposition = res.headers.get("content-disposition") || "";
-    const match = disposition.match(/filename="?([^"]+)"?/);
+    const docNumber = res.headers.get("x-document-number") || "";
+    const customerId = res.headers.get("x-customer-id") || "";
     const blob = await res.blob();
-    lastReceiptData = data;
+    lastReceiptData = { ...data, number: docNumber, customer_id: customerId };
     if (lastReceiptBlobUrl) URL.revokeObjectURL(lastReceiptBlobUrl);
     lastReceiptBlobUrl = showPdfBlob("rec", blob);
     document.getElementById("rec-email-btn").disabled = false;
-    if (match) setChip(document.getElementById("rec-number-chip"), match[1].replace(".pdf", ""), false);
+    if (docNumber) setChip(document.getElementById("rec-number-chip"), docNumber, false);
     updateRecCustomerIdPreview();
     showStatus("rec-status-msg", "Receipt generated.", "success");
   } catch (err) {
